@@ -7,17 +7,25 @@ var commandPrefix = '';
 var sbot = require('slackbots');
 var slackBotConfig = require('./slackbotConfig.json');
 
-/*
- * array of slack group team configs:
- * can connect the bot to multiple teams, can also provide each team with different params
- */
-var SlackBotConfigs = [
-    slackBotConfig.slackGroup
-];
 
 
-var SlackBot = function(configuration, executeFn) {
+var StartSlackBot = function(configuration, executeFn) {
 
+
+    /*
+     * array of slack group team configs:
+     * can connect the bot to multiple teams, can also provide each team with different params
+     */
+
+
+    Object.keys(configuration).forEach(function(k) {
+        slackBotConfig[k] = configuration[k];
+
+    });
+
+    var SlackBotConfigs = [
+        slackBotConfig.slackGroup
+    ];
 
 
     console.log('Starting SlackBot');
@@ -38,6 +46,76 @@ var SlackBot = function(configuration, executeFn) {
 
 
         bot.on('start', function() {
+
+            var getSender = function(messageData) {
+
+
+                /**
+                 * try to respond to user in the users direct chat channel
+                 */
+
+
+                /**
+                 * check for match in direct chat channels
+                 */
+                var chat;
+                for (var i = 0; i < chats.length; i++) {
+                    chat = chats[i];
+
+                    if (messageData.channel === chat.channel) {
+                        return chat.name;
+                    }
+                }
+
+                /**
+                 * if that didn't work check for name of sender and use that to get users chat channel
+                 */
+                var user;
+                for (var i = 0; i < users.length; i++) {
+                    user = users[i];
+
+                    if (messageData.user === user.id) {
+                        return user.name;
+                        return function(responseText, params, callback) {
+                            bot.postMessageToUser(user.name, responseText, params, callback);
+                        }
+
+                    }
+                }
+
+                return false;
+            };
+
+            var getRespondFn = function(messageData) {
+
+                /**
+                 * try to respond to user in the users direct chat channel
+                 */
+
+
+                /**
+                 * check for match in direct chat channels
+                 */
+                var sender = getSender(messageData);
+
+                if (sender !== false) {
+
+                    return function(responseText, params, callback) {
+                        bot.postMessageToUser(sender, responseText, params, callback);
+                    }
+                }
+
+
+                return function(responseText, params, callback) {
+                    console.log(responseText);
+                    console.log(params);
+                    callback();
+                }
+
+            };
+
+
+            //console.log(bot);
 
             if (options) {
                 Object.keys(options).forEach(function(k) {
@@ -93,14 +171,29 @@ var SlackBot = function(configuration, executeFn) {
             });
 
 
+            var one = false;
 
             bot.on('message', function(data) {
+
+                if ((!data.type) || data.type !== 'message') {
+                    return;
+                }
+
+                var sender = data.username || false;
+                console.log(' sender ' + sender);
+                if (sender === options.name || sender === bot.self.name || sender === 'bot') {
+
+
+                    console.log(data);
+                    return;
+                }
+
 
 
                 if (data.text && (commandPrefix === "" || data.text.indexOf(commandPrefix) === 0)) {
 
                     var cmd = data.text.substring(commandPrefix.length);
-
+                    console.log(data);
 
 
                     if (cmd.toLowerCase() === "exit") {
@@ -111,7 +204,11 @@ var SlackBot = function(configuration, executeFn) {
 
 
                     try {
-                        executeFn(data, cmd, getRespondFn(data), options);
+                        executeFn(cmd, getRespondFn(data), {
+                            configuration: slackBotConfig,
+                            data: data,
+                            bot: bot
+                        });
 
                     } catch (e) {
                         getRespondFn(data)('Error executing command:' + '```' + e + '```');
@@ -129,66 +226,19 @@ var SlackBot = function(configuration, executeFn) {
 
 
 
-        var getRespondFn = function(messageData) {
-
-            /**
-             * try to respond to user in the users direct chat channel
-             */
-
-
-            /**
-             * check for match in direct chat channels
-             */
-            var chat;
-            for (var i = 0; i < chats.length; i++) {
-                chat = chats[i];
-
-                if (messageData.channel === chat.channel) {
-                    console.log('Responding To: ' + chat.name);
-                    return function(responseText, params, callback) {
-                        bot.postMessageToUser(chat.name, responseText, params, callback);
-                    }
-                }
-            }
-
-            /**
-             * if that didn't work check for name of sender and use that to get users chat channel
-             */
-            var user;
-            for (var i = 0; i < users.length; i++) {
-                user = users[i];
-
-                if (messageData.user === user.id) {
-                    console.log('Responding To: ' + user.name);
-
-                    return function(responseText, params, callback) {
-                        bot.postMessageToUser(user.name, responseText, params, callback);
-                    }
-
-                }
-            }
-
-            return function(responseText, params, callback) {
-                console.log(responseText);
-                console.log(params);
-                callback();
-            }
-
-        }
-
         return bot;
 
     };
     var makeBot = function(args) {
 
-        (new sbot(args))
-        .startBot(bot, args)
-            .on('close', function() {
-                setTimeout(function() {
-                    // Restart that bot after 10s
-                    makeBot(args);
-                }, 10000);
-            });
+        var bot = (new sbot(args)).on('close', function() {
+            setTimeout(function() {
+                // Restart that bot after 10s
+                makeBot(args);
+            }, 10000);
+        });
+        startBot(bot, args)
+
     };
 
     SlackBotConfigs.forEach(function(args) {
@@ -197,5 +247,5 @@ var SlackBot = function(configuration, executeFn) {
 }
 
 module.exports = {
-    CreateBot: SlackBot
+    Create: StartSlackBot
 }

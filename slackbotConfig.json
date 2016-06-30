@@ -1,7 +1,7 @@
 {
 
 	"slackGroup": {
-		"token": "xoxb-00000000000-abcdefghijklmnopqrstuvwx", // Add a bot https://my.slack.com/services/new/bot and put the token  
+		"token": "xoxb-00000000000-abcdefghijklmnopqrstuvwx",
 		"name": "bot.execbot"
 	}
 
